@@ -1,118 +1,127 @@
+import { delay, rand } from "./utils.js"
+import { Ui } from "./ui.js"
 import { kScript } from "./script.js"
+import { Store } from "./store.js"
+import { Ledger } from "./ledger.js"
 
 // -- constants --
 const kHashStart = "#hahaha"
 const kIdGame = "game"
-const kIdWelcome = "welcome"
 const kIdHoneypot = "t-honeypot"
-const kClassHidden = "is-hidden"
 
-// -- props --
-// the game element
-let $mGame
+// -- impls --
+class Game {
+  // -- deps --
+  // the state store
+  #store = Store.get()
 
-// the welcome element
-let $mWelcome = null
+  // the player's ledger
+  #ledger = new Ledger()
 
-// the honeypot template
-let $tHoneypot = null
+  // -- props --
+  // the game element
+  $root = null
 
-// -- lifetime --
-// init the game module
-function Init() {
-  const d = document
-  const w = window
+  // the honeypot template
+  $honeypot = null
 
-  // scrub state
-  w.location.hash = ""
+  // -- commands --
+  // run the game
+  static run() {
+    new Game().init()
+    new Ui().init()
+  }
 
-  // set props
-  $mGame = d.getElementById(kIdGame)
-  $mWelcome = d.getElementById(kIdWelcome)
-  $tHoneypot = d.getElementById(kIdHoneypot)
+  // init the game module
+  init() {
+    const m = this
+    const d = document
+    const w = window
 
-  // bind events
-  w.addEventListener("hashchange", OnHashChange)
-}
+    // scrub state
+    if (w.location.hash) {
+      w.location.hash = ""
+    }
 
-// -- commands --
-// start the game (after clicking the initial link)
-async function Start() {
-  // hide mWelcome
-  $mWelcome.classList.toggle(kClassHidden, true)
+    // set props
+    m.$root = d.getElementById(kIdGame)
+    m.$honeypot = d.getElementById(kIdHoneypot)
 
-  // once hidden, show the first honeypot
-  await Delay(5.0)
-  SpawnHoneypot()
-}
+    // bind events
+    w.addEventListener("hashchange", m.onHashChange)
+  }
 
-// adds a new honeypot to the dom
-function SpawnHoneypot() {
-  // clone node
-  const $tmpl = $tHoneypot.content.firstElementChild
-  const $nRoot = $tmpl.cloneNode(true)
-  const $nCaption = $nRoot.querySelector(".Honeypot-caption")
+  // start the game (after clicking the initial link)
+  async start() {
+    const m = this
 
-  // set initial pos
-  $nRoot.style.left = `${Rand(5, 90)}vw`
-  $nRoot.style.top = `${Rand(5, 90)}vh`
+    // start the game
+    m.#store.set((s) => s.started = true)
 
-  // set caption pos
-  const prop = RandBool() ? "left" : "right"
-  $nCaption.style[prop] = `${Rand(0, 60)}%`
-  $nCaption.style.top = `${Rand(10, 60)}%`
+    // wait for the animation fo finish
+    // show the first honeypot
+    await delay(5.0)
+    m.spawnHoneypot()
+  }
 
-  // add script
-  const text = kScript.honeypot.next()
-  $nRoot.setAttribute("alt", text)
-  $nCaption.innerText = text
+  // adds a new honeypot to the dom
+  spawnHoneypot() {
+    const m = this
 
-  // bind events
-  $nRoot.addEventListener("click", ClickHoneypot)
+    // clone node
+    const $tmpl = m.$honeypot.content.firstElementChild
+    const $root = $tmpl.cloneNode(true)
+    const $text = $root.querySelector(".Honeypot-caption")
 
-  // show
-  $mGame.appendChild($nRoot)
-}
+    // set initial pos
+    $root.style.left = `${rand.range(5, 90)}vw`
+    $root.style.top = `${rand.range(5, 90)}vh`
 
-// click the honeypot
-function ClickHoneypot(evt) {
-  const $node = evt.target
-  $node.remove()
-  SpawnHoneypot()
-}
+    // set caption pos
+    const prop = rand.bool() ? "left" : "right"
+    $text.style[prop] = `${rand.range(0, 60)}%`
+    $text.style.top = `${rand.range(-5, 95)}%`
 
-// -- events --
-function OnHashChange() {
-  const hash = window.location.hash
+    // add script
+    const text = kScript.honeypot.next()
+    $root.setAttribute("alt", text)
+    $text.innerText = text
 
-  switch (hash) {
-  case kHashStart:
-    Start(); break
+    // bind events
+    $root.addEventListener("click", m.onClickHoneypot)
+
+    // show
+    m.$root.appendChild($root)
+  }
+
+  // destroy the honeypot and add a new one
+  selectHoneypot($node) {
+    const m = this
+
+    // destroy the node
+    $node.remove()
+
+    // spawn a new one
+    m.spawnHoneypot()
+
+    // record the click
+    m.#ledger.recordClick()
+  }
+
+  // -- events --
+  // when navigating to a hash url
+  onHashChange = () => {
+    switch (window.location.hash) {
+    case kHashStart:
+      this.start(); break
+    }
+  }
+
+  // when clicking a honeypot
+  onClickHoneypot = (evt) => {
+    this.selectHoneypot(evt.target)
   }
 }
 
-// -- utils --
-// wait a number of seconds
-function Delay(seconds) {
-  return new Promise((res, rej) => {
-    setTimeout(res, seconds * 1000.0)
-  })
-}
-
-// get random value between min and max
-function Rand(min, max) {
-  return Lerp(min, max, Math.random())
-}
-
-// get a random boolean
-function RandBool() {
-  return Math.random() > 0.5
-}
-
-// get linear value between min and max
-function Lerp(min, max, t) {
-  return min + (max - min) * t;
-}
-
 // -- bootstrap --
-Init()
+Game.run()

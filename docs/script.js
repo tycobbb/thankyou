@@ -1,6 +1,13 @@
-// -- types --
-// a line sequence
-class Sequence {
+// -- impls --
+// a sequence of lines
+class ScriptSequence {
+  // -- props --
+  // the index in the list
+  i = 0
+
+  // the list of lines
+  lines = null
+
   // -- lifetime --
   // create a new sequence
   constructor(...lines) {
@@ -18,9 +25,9 @@ class Sequence {
   }
 }
 
-// -- script --
+// -- content --
 export const kScript = {
-  honeypot: new Sequence(
+  honeypot: new ScriptSequence(
     "please click this"
   )
 }
